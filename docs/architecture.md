@@ -44,6 +44,27 @@ synchronization itself works (elastic buffer + drift-aware aggregation
 because the use case (productized LoRA fine-tuning with measurable
 straggler-tax recovery) needs both.
 
+## FSDP integration
+
+`plesio_init(model, config)` must be called **after** the model is
+FSDP-wrapped, and FSDP must be configured with **`use_orig_params=True`**. The
+aggregator's backward hooks attach to the original LoRA parameters, which FSDP
+only exposes under `use_orig_params=True`; under FSDP the runtime additionally
+installs module-level activation-gradient hooks, because Parameter-level hooks
+do not fire inside FSDP's post-backward callback.
+
+```python
+model = FSDP(get_peft_model(base, lora_config), use_orig_params=True)
+plesio_init(model, config)   # after the FSDP wrap
+```
+
+End-to-end FSDP behavior is validated on CUDA hardware. The public test suite
+covers the single-process and MPS paths; the multi-process / FSDP integration
+test is skipped on Apple silicon (a PyTorch MPS-FSDP limitation, not an SDK
+issue). For introspection (per-adapter HOLD/FIRE decisions, fire counts) in
+tests and benchmarks, `get_runtime(model)` returns the live runtime and is
+exported from the package root (`from tsugi_kpool import get_runtime`).
+
 ## Sideband trust boundary
 
 The sideband is an unauthenticated, low-bandwidth TCP control plane for a
