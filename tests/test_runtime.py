@@ -72,6 +72,15 @@ def toy_cfg() -> KPoolLoraConfig:
     )
 
 
+def test_plesio_init_raises_without_adapter_pool() -> None:
+    # A model with no `adapter_<int>` submodules yields an empty discovery;
+    # plesio_init must fail loudly rather than wire up an inert runtime.
+    model = nn.Linear(4, 4)
+    cfg = KPoolLoraConfig(n_adapters=4, k_active=2)
+    with pytest.raises(RuntimeError, match="no adapters named"):
+        plesio_init(model, cfg, sender_id="test-node")
+
+
 def test_plesio_init_finds_adapter_params(toy_cfg: KPoolLoraConfig) -> None:
     # The default cfg has sideband disabled, but plesio_init does not
     # allow sideband_enabled=False with aggregation_mode=buffer_convergence
