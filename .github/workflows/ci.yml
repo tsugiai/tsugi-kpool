@@ -48,3 +48,13 @@ jobs:
 
       - name: Run pytest
         run: pytest -q
+
+  disclosure:
+    # Blocking gate: the public tree is engineering-only. Fails the build if
+    # internal / non-engineering content (validation taxonomy, prosecution or
+    # claim-element framing, internal paths/names) reaches a tracked file.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Disclosure scrub gate
+        run: bash scripts/check_disclosure.sh
