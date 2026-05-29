@@ -19,10 +19,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 import time
 from dataclasses import dataclass, asdict
 
 from tsugi_kpool.config import KPoolLoraConfig
+
+# Hard caps on inbound heartbeat frames. The sideband is a trusted-fabric
+# control plane carrying tiny payloads (sender id + timestamp + a small
+# per-adapter occupancy map); anything larger is treated as malformed or
+# hostile and dropped before it can grow memory or poison drift state.
+_MAX_FRAME_BYTES = 65536
+_MAX_SENDER_ID_LEN = 256
+_MAX_BUFFER_FILL_ENTRIES = 4096
 
 
 @dataclass
@@ -46,6 +55,7 @@ class Sideband:
         self.sender_id = sender_id
         self._peer_last_ts: dict[str, int] = {}
         self._peer_drift_ms: dict[str, float] = {}
+        self._allowed_hosts: set[str] = set()
         self._running = False
         self._tasks: list[asyncio.Task[None]] = []
 
@@ -53,8 +63,11 @@ class Sideband:
         if not self.config.sideband_enabled:
             return
         self._running = True
+        self._allowed_hosts = self._compute_allowed_hosts()
         host, port = self._parse_addr(self.config.sideband_addr)
-        server = await asyncio.start_server(self._handle_peer, host, port)
+        server = await asyncio.start_server(
+            self._handle_peer, host, port, limit=_MAX_FRAME_BYTES
+        )
         self._tasks.append(asyncio.create_task(server.serve_forever()))
         self._tasks.append(asyncio.create_task(self._heartbeat_loop()))
 
@@ -106,6 +119,35 @@ class Sideband:
         host, _, port = addr.removeprefix("tcp://").partition(":")
         return host, int(port)
 
+    def _compute_allowed_hosts(self) -> set[str]:
+        """Source-address allow-list derived from `config.sideband_peers`.
+        Inbound heartbeats whose source host is not in this set are dropped.
+        The sideband is a trusted-fabric control plane, so this is a coarse
+        network-level guard (peer identity by source address), not a
+        cryptographic one; message authentication is planned for a later
+        release. With no peers configured there is no legitimate inbound
+        peer, so every connection is rejected."""
+        allowed: set[str] = set()
+        for peer in self.config.sideband_peers:
+            try:
+                host, _ = self._parse_addr(peer)
+            except ValueError:
+                continue
+            allowed.add(host)
+            try:
+                # Best-effort: match a peer configured by hostname against
+                # the source IP we actually observe on connect.
+                _, _, ips = socket.gethostbyname_ex(host)
+                allowed.update(ips)
+            except OSError:
+                pass
+        return allowed
+
+    def _peer_allowed(self, src_host: str | None) -> bool:
+        if src_host is None:
+            return False
+        return src_host in self._allowed_hosts
+
     # The heartbeat payload carries `ts_monotonic_ns` (the source
     # node's monotonic-clock timestamp at send time), and the receiver
     # computes `drift = abs(local_recv_ns - peer_send_ns)` in ms. This
@@ -148,9 +190,18 @@ class Sideband:
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         local_recv_ns = time.monotonic_ns()
+        # Source-address allow-list: drop connections from hosts that are
+        # not configured peers before reading anything from the wire.
+        peername = writer.get_extra_info("peername")
+        src_host = peername[0] if peername else None
+        if not self._peer_allowed(src_host):
+            writer.close()
+            return
         try:
+            # `limit=_MAX_FRAME_BYTES` on the server bounds the read buffer;
+            # an over-long line without a separator raises here.
             line = await reader.readline()
-        except (OSError, ConnectionError):
+        except (OSError, ConnectionError, ValueError, asyncio.LimitOverrunError):
             writer.close()
             return
         if not line:
@@ -160,6 +211,17 @@ class Sideband:
             payload = json.loads(line.decode())
             msg = HeartbeatMessage(**payload)
         except (json.JSONDecodeError, TypeError, ValueError):
+            writer.close()
+            return
+        # Bound the fields we key state on so a malformed/hostile frame
+        # cannot grow the drift table or its keys without limit.
+        if (
+            not isinstance(msg.sender_id, str)
+            or len(msg.sender_id) > _MAX_SENDER_ID_LEN
+            or not isinstance(msg.ts_monotonic_ns, int)
+            or not isinstance(msg.buffer_fill, dict)
+            or len(msg.buffer_fill) > _MAX_BUFFER_FILL_ENTRIES
+        ):
             writer.close()
             return
         # Plesiochronous drift: one-way wall-clock difference. Clocks are
