@@ -36,6 +36,11 @@ def post_backward_step(*args, **kwargs):  # type: ignore[no-untyped-def]
     return _impl(*args, **kwargs)
 
 
+def get_runtime(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from tsugi_kpool.runtime import get_runtime as _impl
+    return _impl(*args, **kwargs)
+
+
 __all__ = [
     "KPoolLoraConfig",
     "plesio_init",
@@ -43,5 +48,6 @@ __all__ = [
     "apply_kpool_step",
     "pre_forward_step",
     "post_backward_step",
+    "get_runtime",
     "__version__",
 ]
