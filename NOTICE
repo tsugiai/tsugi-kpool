@@ -1,0 +1,44 @@
+tsugi-kpool
+Copyright 2026 TsugiCinema, Inc.
+
+This product includes software developed by TsugiCinema, Inc. and is
+licensed under the Apache License, Version 2.0 (see LICENSE).
+
+PATENT POSTURE (informational; does not modify the Apache-2.0 license in
+LICENSE). This SDK is a productization of TsugiCinema, Inc.'s K-Pool LoRA
+(US App. 64/060,315) and Infinity (US App. 64/055,093) patent estates,
+packaged as a drop-in extension to PyTorch + PEFT for distributed LoRA
+fine-tuning. The Apache-2.0 automatic patent grant in Section 3 extends
+to those patent estates AS PRACTICED BY THE SDK CODE AS DISTRIBUTED.
+Apache-2.0 Section 3's "necessarily infringed by their Contribution"
+language bounds the patent license to the specific embodiment present in
+the SDK code as distributed.
+
+This software composes with public prior art from the following sources.
+The implementation here is original TsugiCinema, Inc. code.
+
+1. Low-Rank Adaptation of Large Language Models.
+   Hu, E. J. et al. (2021). arXiv:2106.09685.
+   The LoRA adapter shape and field semantics are anchored on the LoRA
+   paper and the peft library's LoraConfig.
+
+2. PEFT (Parameter-Efficient Fine-Tuning).
+   HuggingFace (2022-present). https://github.com/huggingface/peft
+   This SDK extends peft's LoraConfig with K-Pool routing and sideband
+   fields, and uses peft's adapter discovery and routing primitives.
+
+3. Decoupled DiLoCo: Continual Pre-Training of Language Models without
+   Aggregator Synchronization.
+   Douillard, A.; Donchev, A.; Rush, A.; Riedel, S. (2026).
+   arXiv:2604.21428.
+   This SDK's data-driven (variance-threshold) aggregation trigger is a
+   different design point from Decoupled DiLoCo's time/quorum-based
+   trigger; the contrast is discussed in docs/architecture.md.
+
+COMPANION SDK:
+
+A companion SDK at github.com/tsugiai/tsugi-mend is also licensed under
+Apache-2.0 but is patent-independent by deliberate construction: it does
+not exercise either of TsugiCinema's K-Pool LoRA or Infinity patent
+estates. The two SDKs share zero code. The unified product surface
+(`pip install tsugi`) wraps both SDKs at a packaging level.

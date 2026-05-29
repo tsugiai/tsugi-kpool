@@ -1,0 +1,39 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+.envrc
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# benchmark artifacts: keep code, not measurement traces
+benchmarks/llama3_8b_lora/results/
+benchmarks/llama3_8b_lora/checkpoints/
+*.jsonl
+*.pt
+*.bin
+*.safetensors
+
+# keep any diagnostics sample committed under docs/ (engineering reference)
+!docs/*.jsonl
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# secrets
+*.pem
+*.key
+*.crt
+.netrc
