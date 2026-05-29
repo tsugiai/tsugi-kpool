@@ -40,7 +40,9 @@ class KPoolLoraConfig:
 
     # --- Infinity runtime (App. 64/055,093) ---
     sideband_enabled: bool = False
-    sideband_addr: str = "tcp://0.0.0.0:51820"
+    # Loopback by default (secure-by-default); set to the rank's reachable
+    # NIC address for real multi-node runs.
+    sideband_addr: str = "tcp://127.0.0.1:51820"
     sideband_peers: tuple[str, ...] = field(default_factory=tuple)
     sideband_heartbeat_ms: int = 50
     max_drift_ms: int = 250

@@ -44,6 +44,15 @@ synchronization itself works (elastic buffer + drift-aware aggregation
 because the use case (productized LoRA fine-tuning with measurable
 straggler-tax recovery) needs both.
 
+## Sideband trust boundary
+
+The sideband is an unauthenticated, low-bandwidth TCP control plane for a
+trusted cluster fabric. It binds to loopback by default, enforces a
+source-address peer allow-list (from `sideband_peers`), and bounds inbound
+frame size. It is not meant to be exposed to untrusted networks and does not
+yet carry cryptographic message authentication (planned for a later release).
+See `SECURITY.md`.
+
 ## What is intentionally not here
 
 - Full-model gradient synchronization. The aggregator operates on adapter

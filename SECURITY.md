@@ -33,3 +33,21 @@ Security-sensitive reports include issues such as unsafe execution behavior,
 credential exposure, dependency supply-chain risk, denial-of-service behavior,
 and network-facing behavior that could affect a training deployment. General
 bugs, documentation gaps, and feature requests can be filed as public issues.
+
+## Sideband control plane (trust boundary)
+
+The optional phase-correction sideband is a low-bandwidth TCP control plane
+intended to run **only on a trusted, private cluster fabric**. As of the
+`0.1.x` line it:
+
+- binds to loopback (`127.0.0.1`) by default; multi-node runs must set
+  `sideband_addr` to the rank's reachable interface explicitly;
+- enforces a source-address peer allow-list derived from `sideband_peers`
+  (heartbeats from any other host are dropped before parsing);
+- bounds inbound heartbeat frame size and the fields it keys state on.
+
+It does **not** yet provide cryptographic message authentication or replay
+protection; peer identity is established by source address only. Cryptographic
+peer authentication is planned for a later release. Operators must restrict the
+sideband port to the training fabric (firewall / private subnet) and must not
+expose it to untrusted networks.
