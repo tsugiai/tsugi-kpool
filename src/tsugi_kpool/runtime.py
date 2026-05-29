@@ -321,6 +321,15 @@ def plesio_init(
     # which .grad tensors to zero on HOLD decisions and so backward
     # hooks can be installed before training begins.
     runtime.adapter_params = _discover_adapter_params(model, config.n_adapters)
+    if not any(runtime.adapter_params.get(i) for i in range(config.n_adapters)):
+        raise RuntimeError(
+            "plesio_init found no adapters named "
+            f"'adapter_0'..'adapter_{config.n_adapters - 1}'. Build the K-of-N "
+            "adapter pool before calling plesio_init: get_peft_model(base, "
+            "lora_config, adapter_name='adapter_0') then "
+            "add_adapter('adapter_1', ...). See the README quickstart and "
+            "docs/architecture.md."
+        )
     _install_backward_hooks(model, runtime)
     # Also install Module-level full_backward_hooks on per-adapter
     # sub-modules so the elastic buffer is populated under FSDP /

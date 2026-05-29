@@ -41,8 +41,8 @@ K-Pool LoRA describes WHAT is synchronized (which K of N adapters
 participate) and at which granularity. Infinity describes HOW the
 synchronization itself works (elastic buffer + drift-aware aggregation
 + control-plane / data-plane separation). The SDK is a single product
-because the use case (productized LoRA fine-tuning with measurable
-straggler-tax recovery) needs both.
+because the use case (productized LoRA fine-tuning that targets
+straggler-tax recovery on cross-rack clusters) needs both.
 
 ## FSDP integration
 
