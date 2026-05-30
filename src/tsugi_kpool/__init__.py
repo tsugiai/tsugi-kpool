@@ -8,7 +8,7 @@ plesio_init and plesio_shutdown require torch at import time.
 """
 from tsugi_kpool.config import KPoolLoraConfig
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 
 def plesio_init(*args, **kwargs):  # type: ignore[no-untyped-def]
