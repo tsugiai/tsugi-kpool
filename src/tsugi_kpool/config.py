@@ -6,7 +6,72 @@ parameters plus the Infinity sideband + aggregator parameters.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
+from collections.abc import Iterable
 from typing import Optional
+
+
+_DEFAULT_RECOMMENDED_EPS_FLOOR = 1e-12
+
+
+def _require_finite_at_least(name: str, value: float, minimum: float) -> None:
+    if not math.isfinite(value) or value < minimum:
+        raise ValueError(f"{name} must be finite and >= {minimum}; got {value!r}")
+
+
+def _require_finite_greater_than(name: str, value: float, minimum: float) -> None:
+    if not math.isfinite(value) or value <= minimum:
+        raise ValueError(f"{name} must be finite and > {minimum}; got {value!r}")
+
+
+def _require_finite_in_range(
+    name: str, value: float, minimum: float, maximum: float
+) -> None:
+    if not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(
+            f"{name} must be finite and in [{minimum}, {maximum}]; got {value!r}"
+        )
+
+
+def recommend_buffer_convergence_eps(
+    variance_samples: Iterable[float],
+    *,
+    quantile: float = 0.5,
+    floor: float = _DEFAULT_RECOMMENDED_EPS_FLOOR,
+) -> float:
+    """Recommend ``buffer_convergence_eps`` from observed variance samples.
+
+    Non-finite samples are ignored. The returned value is the requested quantile
+    of the remaining samples, linearly interpolated between neighboring samples,
+    and never below ``floor``.
+    """
+
+    if not math.isfinite(quantile) or not 0.0 <= quantile <= 1.0:
+        raise ValueError(f"quantile must be finite and in [0, 1]; got {quantile!r}")
+    _require_finite_greater_than("floor", floor, 0.0)
+
+    finite_samples: list[float] = []
+    for sample in variance_samples:
+        value = float(sample)
+        if math.isfinite(value):
+            finite_samples.append(value)
+
+    if not finite_samples:
+        return floor
+
+    finite_samples.sort()
+    if len(finite_samples) == 1:
+        return max(finite_samples[0], floor)
+
+    position = quantile * (len(finite_samples) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        eps = finite_samples[lower]
+    else:
+        weight = position - lower
+        eps = finite_samples[lower] * (1.0 - weight) + finite_samples[upper] * weight
+    return max(eps, floor)
 
 
 @dataclass
@@ -54,11 +119,28 @@ class KPoolLoraConfig:
     diagnostics_dir: Optional[str] = None
 
     def __post_init__(self) -> None:
+        if not math.isfinite(float(self.r)) or self.r < 1:
+            raise ValueError(f"r must be >= 1; got {self.r}")
+        _require_finite_in_range("lora_dropout", float(self.lora_dropout), 0.0, 1.0)
         if not (1 <= self.k_active <= self.n_adapters):
             raise ValueError(
                 f"k_active must satisfy 1 <= k_active <= n_adapters; "
                 f"got k_active={self.k_active}, n_adapters={self.n_adapters}"
             )
+        if (
+            not math.isfinite(float(self.sideband_heartbeat_ms))
+            or self.sideband_heartbeat_ms < 1
+        ):
+            raise ValueError(
+                f"sideband_heartbeat_ms must be >= 1; "
+                f"got {self.sideband_heartbeat_ms}"
+            )
+        _require_finite_at_least("max_drift_ms", float(self.max_drift_ms), 0.0)
+        if not math.isfinite(float(self.buffer_capacity)) or self.buffer_capacity < 2:
+            raise ValueError(f"buffer_capacity must be >= 2; got {self.buffer_capacity}")
+        _require_finite_greater_than(
+            "buffer_convergence_eps", float(self.buffer_convergence_eps), 0.0
+        )
         if self.routing_strategy not in {"round_robin", "loss_aware", "random"}:
             raise ValueError(f"unknown routing_strategy: {self.routing_strategy}")
         if self.aggregation_mode not in {"synchronous", "buffer_convergence"}:
