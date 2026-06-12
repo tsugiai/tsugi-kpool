@@ -6,7 +6,7 @@ Note: KPoolLoraConfig is pure-python and imports without torch installed
 (so tests / configuration / docs tooling work in lighter environments).
 plesio_init and plesio_shutdown require torch at import time.
 """
-from tsugi_kpool.config import KPoolLoraConfig
+from tsugi_kpool.config import KPoolLoraConfig, recommend_buffer_convergence_eps
 
 __version__ = "0.1.2"
 
@@ -43,6 +43,7 @@ def get_runtime(*args, **kwargs):  # type: ignore[no-untyped-def]
 
 __all__ = [
     "KPoolLoraConfig",
+    "recommend_buffer_convergence_eps",
     "plesio_init",
     "plesio_shutdown",
     "apply_kpool_step",

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 while APIs stabilize.
 
+## [Unreleased]
+
+### Added
+- Added `recommend_buffer_convergence_eps`, a torch-free helper for choosing a
+  buffer-convergence epsilon from observed per-adapter variance samples.
+
+### Changed
+- Tightened `KPoolLoraConfig` construction-time validation. Invalid numeric
+  values that could silently disable or invert runtime behavior now raise
+  `ValueError`.
+
 ## [0.1.2] - 2026-05-30
 
 ### Added

@@ -56,6 +56,33 @@ def test_hold_rate_is_monotone_non_increasing_in_eps() -> None:
     assert hold_rates[-1] == 0.0, "largest eps should FIRE every adapter"
 
 
+def test_convergence_trigger_strict_boundary() -> None:
+    config = KPoolLoraConfig(
+        n_adapters=1,
+        k_active=1,
+        buffer_capacity=2,
+        max_drift_ms=1_000_000,
+    )
+    agg = BufferConvergenceAggregator(config)
+    agg.buffer.push(0, torch.zeros(1))
+    agg.buffer.push(0, torch.full((1,), 2.0))
+
+    known_variance = 2.0
+    assert agg.buffer.variance(0) == pytest.approx(known_variance)
+
+    cases = [
+        (known_variance / 2.0, False, "hold_variance"),
+        (known_variance, False, "hold_variance"),
+        (known_variance * 2.0, True, "fire"),
+    ]
+    for eps, expected_fired, expected_reason in cases:
+        agg.config.buffer_convergence_eps = eps
+        decision = agg.decide(0, peer_drift_ms=0.0)
+        assert decision.variance == pytest.approx(known_variance)
+        assert decision.fired is expected_fired
+        assert decision.reason == expected_reason
+
+
 @pytest.mark.parametrize("strategy", ["round_robin", "random", "loss_aware"])
 def test_router_selects_exactly_k(strategy: str) -> None:
     n, k = 8, 3
