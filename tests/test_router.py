@@ -3,7 +3,7 @@ commit be13bcf: round_robin, random, loss_aware."""
 import pytest
 
 from tsugi_kpool.config import KPoolLoraConfig
-from tsugi_kpool.router import KPoolRouter
+from tsugi_kpool.router import KPoolRouter, adapter_names
 
 
 def test_round_robin_cycles() -> None:
@@ -64,3 +64,10 @@ def test_loss_aware_picks_highest_loss_when_record_full() -> None:
 def test_unknown_strategy_raises() -> None:
     with pytest.raises(ValueError):
         KPoolLoraConfig(routing_strategy="not_a_strategy")
+
+
+def test_adapter_names_maps_indices_to_peft_adapter_names() -> None:
+    cfg = KPoolLoraConfig(n_adapters=4, k_active=2)
+
+    assert adapter_names(cfg, (0, 3)) == ["adapter_0", "adapter_3"]
+    assert adapter_names(cfg, ()) == []
