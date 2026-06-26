@@ -33,6 +33,59 @@ def _require_finite_in_range(
         )
 
 
+def _split_tcp_addr(name: str, value: str) -> tuple[str, int]:
+    """Parse and validate a tcp://host:port address string.
+
+    Supports plain hosts and bracketed IPv6 (tcp://[::1]:port).
+    Raises ValueError naming `name` on any malformed input.
+    """
+    if not value.startswith("tcp://"):
+        raise ValueError(
+            f"{name} must start with 'tcp://'; got {value!r}"
+        )
+    rest = value[len("tcp://"):]
+    if rest.startswith("["):
+        # Bracketed IPv6 form: tcp://[addr]:port
+        bracket_end = rest.find("]")
+        if bracket_end == -1:
+            raise ValueError(
+                f"{name}: unclosed '[' in IPv6 address; got {value!r}"
+            )
+        host = rest[1:bracket_end]
+        after_bracket = rest[bracket_end + 1:]
+        if not after_bracket.startswith(":"):
+            raise ValueError(
+                f"{name}: missing port after ']' in address; got {value!r}"
+            )
+        port_str = after_bracket[1:]
+    else:
+        host, sep, port_str = rest.partition(":")
+        if not sep:
+            raise ValueError(
+                f"{name}: missing port in address (expected tcp://host:port); got {value!r}"
+            )
+    if not host:
+        raise ValueError(
+            f"{name}: host must not be empty; got {value!r}"
+        )
+    try:
+        port = int(port_str)
+    except ValueError:
+        raise ValueError(
+            f"{name}: port must be an integer; got {value!r}"
+        ) from None
+    if not 0 <= port <= 65535:
+        raise ValueError(
+            f"{name}: port must be in [0, 65535]; got {value!r}"
+        )
+    return host, port
+
+
+def _validate_tcp_addr(name: str, value: str) -> None:
+    """Validate a tcp://host:port address string; raise ValueError on bad input."""
+    _split_tcp_addr(name, value)
+
+
 def recommend_buffer_convergence_eps(
     variance_samples: Iterable[float],
     *,
@@ -149,3 +202,6 @@ class KPoolLoraConfig:
             raise ValueError(
                 "sideband_enabled=True requires aggregation_mode='buffer_convergence'"
             )
+        _validate_tcp_addr("sideband_addr", self.sideband_addr)
+        for i, peer in enumerate(self.sideband_peers):
+            _validate_tcp_addr(f"sideband_peers[{i}]", peer)

@@ -106,3 +106,45 @@ def test_recommend_buffer_convergence_eps_is_exported_from_package_root() -> Non
     assert exported_recommend_buffer_convergence_eps([1.0, 2.0, 3.0]) == pytest.approx(
         2.0
     )
+
+
+@pytest.mark.parametrize(
+    "addr",
+    [
+        "tcp://127.0.0.1:51820",  # default
+        "tcp://127.0.0.1:0",      # OS-assigned ephemeral port (must be allowed)
+        "tcp://hostname:8080",
+        "tcp://[::1]:51820",      # bracketed IPv6
+        "tcp://[::1]:0",          # bracketed IPv6 with port 0
+    ],
+)
+def test_sideband_addr_accepts_valid_addresses(addr: str) -> None:
+    cfg = KPoolLoraConfig(sideband_addr=addr)
+    assert cfg.sideband_addr == addr
+
+
+@pytest.mark.parametrize(
+    ("addr", "match"),
+    [
+        ("tcp://host", "sideband_addr"),            # missing port
+        ("tcp://127.0.0.1:99999", "sideband_addr"), # out-of-range port
+        ("tcp://127.0.0.1:-1", "sideband_addr"),    # negative port
+        ("tcp://:51820", "sideband_addr"),           # empty host
+        ("udp://host:51820", "sideband_addr"),       # wrong scheme
+        ("tcp://host:abc", "sideband_addr"),         # non-integer port
+        ("tcp://[::1]", "sideband_addr"),            # IPv6 missing port
+    ],
+)
+def test_sideband_addr_rejects_bad_addresses(addr: str, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        KPoolLoraConfig(sideband_addr=addr)
+
+
+def test_sideband_peers_rejects_bad_address() -> None:
+    with pytest.raises(ValueError, match=r"sideband_peers\[0\]"):
+        KPoolLoraConfig(sideband_peers=("tcp://host",))
+
+
+def test_sideband_peers_accepts_valid_addresses() -> None:
+    cfg = KPoolLoraConfig(sideband_peers=("tcp://10.0.0.2:51820", "tcp://[::1]:51820"))
+    assert len(cfg.sideband_peers) == 2
