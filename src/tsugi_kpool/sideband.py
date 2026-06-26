@@ -23,7 +23,7 @@ import socket
 import time
 from dataclasses import dataclass, asdict
 
-from tsugi_kpool.config import KPoolLoraConfig
+from tsugi_kpool.config import KPoolLoraConfig, _split_tcp_addr
 
 # Hard caps on inbound heartbeat frames. The sideband is a trusted-fabric
 # control plane carrying tiny payloads (sender id + timestamp + a small
@@ -114,10 +114,7 @@ class Sideband:
 
     @staticmethod
     def _parse_addr(addr: str) -> tuple[str, int]:
-        if not addr.startswith("tcp://"):
-            raise ValueError(f"sideband_addr must start with tcp://; got {addr}")
-        host, _, port = addr.removeprefix("tcp://").partition(":")
-        return host, int(port)
+        return _split_tcp_addr("sideband address", addr)
 
     def _compute_allowed_hosts(self) -> set[str]:
         """Source-address allow-list derived from `config.sideband_peers`.
